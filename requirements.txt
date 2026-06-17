@@ -1,0 +1,11 @@
+# Pinned during the build; starter set.
+langgraph
+langchain-core
+anthropic
+openai
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+chromadb
+python-dotenv
