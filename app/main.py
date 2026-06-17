@@ -14,14 +14,14 @@ Run with:  uvicorn app.main:app --reload
 
 from __future__ import annotations
 
-import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from .agents.approval import execute_approved_action
 from .config import settings
-from .llm.factory import get_llm
+from .graph import run_conversation
 from .store import run_store
 from .tools.registry import TOOLS, ToolValidationError, call_tool
 
@@ -67,28 +67,13 @@ def invoke_tool(name: str, req: ToolCallRequest) -> dict:
 
 class RunRequest(BaseModel):
     message: str
+    customer_id: str | None = None
 
 
 @app.post("/runs")
 def create_run(req: RunRequest) -> dict:
-    run_id = uuid.uuid4().hex[:12]
-    run_store.create_run(run_id, req.message)
-
-    # Day 1 stub: one LLM step, fully traced. The multi-agent graph lands on Day 2.
-    llm = get_llm()
-    resp = llm.complete(system="You are a helpful SaaS support assistant.", prompt=req.message)
-    run_store.add_step(
-        run_id,
-        step_index=0,
-        step_type="llm",
-        name=resp.model,
-        input={"prompt": req.message},
-        output={"text": resp.text},
-        latency_ms=resp.latency_ms,
-        cost_usd=resp.cost_usd,
-    )
-    run_store.finish_run(run_id, final_response=resp.text)
-    return {"run_id": run_id, "response": resp.text}
+    """Run one conversation turn through the multi-agent graph."""
+    return run_conversation(req.message, customer_id=req.customer_id)
 
 
 @app.get("/runs")
@@ -102,3 +87,46 @@ def get_run(run_id: str) -> dict:
     if data is None:
         raise HTTPException(status_code=404, detail="run not found")
     return data
+
+
+def _require_run(run_id: str) -> dict:
+    data = run_store.get_run(run_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return data
+
+
+@app.post("/runs/{run_id}/approve")
+def approve_run(run_id: str) -> dict:
+    """Human-in-the-loop: execute the risky action this run is waiting on."""
+    data = _require_run(run_id)
+    run = data["run"]
+    if run["status"] != "awaiting_approval" or not run.get("pending_action"):
+        raise HTTPException(status_code=400, detail="run is not awaiting approval")
+
+    action = run["pending_action"]
+    result = execute_approved_action(action)
+    run_store.add_step(
+        run_id, step_index=run_store.count_steps(run_id), step_type="tool",
+        name=action["action"], input=action, output=result,
+    )
+    final = f"Approved and executed: {action['action']} → {result}"
+    run_store.finish_run(run_id, intent=run.get("intent"), final_response=final,
+                         status="completed", pending_action=None)
+    return {"run_id": run_id, "status": "completed", "result": result}
+
+
+@app.post("/runs/{run_id}/reject")
+def reject_run(run_id: str) -> dict:
+    data = _require_run(run_id)
+    run = data["run"]
+    if run["status"] != "awaiting_approval":
+        raise HTTPException(status_code=400, detail="run is not awaiting approval")
+    run_store.add_step(
+        run_id, step_index=run_store.count_steps(run_id), step_type="approval",
+        name="rejected", input=run.get("pending_action"), output={"status": "rejected"},
+    )
+    run_store.finish_run(run_id, intent=run.get("intent"),
+                         final_response="The proposed action was rejected by a human reviewer.",
+                         status="rejected", pending_action=None)
+    return {"run_id": run_id, "status": "rejected"}

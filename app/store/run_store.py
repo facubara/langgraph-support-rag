@@ -23,7 +23,9 @@ CREATE TABLE IF NOT EXISTS runs (
     user_message   TEXT NOT NULL,
     intent         TEXT,
     final_response TEXT,
-    status         TEXT NOT NULL DEFAULT 'created'
+    status         TEXT NOT NULL DEFAULT 'created',
+    pending_action TEXT,
+    replay_of      TEXT
 );
 
 CREATE TABLE IF NOT EXISTS steps (
@@ -67,11 +69,12 @@ def init_db() -> None:
         conn.executescript(_SCHEMA)
 
 
-def create_run(run_id: str, user_message: str) -> None:
+def create_run(run_id: str, user_message: str, replay_of: str | None = None) -> None:
     with _conn() as conn:
         conn.execute(
-            "INSERT INTO runs (id, created_at, user_message, status) VALUES (?, ?, ?, ?)",
-            (run_id, time.time(), user_message, "created"),
+            "INSERT INTO runs (id, created_at, user_message, status, replay_of) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (run_id, time.time(), user_message, "created", replay_of),
         )
 
 
@@ -112,11 +115,19 @@ def finish_run(
     intent: str | None = None,
     final_response: str | None = None,
     status: str = "completed",
+    pending_action: dict[str, Any] | None = None,
 ) -> None:
     with _conn() as conn:
         conn.execute(
-            "UPDATE runs SET intent = ?, final_response = ?, status = ? WHERE id = ?",
-            (intent, final_response, status, run_id),
+            "UPDATE runs SET intent = ?, final_response = ?, status = ?, pending_action = ? "
+            "WHERE id = ?",
+            (
+                intent,
+                final_response,
+                status,
+                json.dumps(pending_action) if pending_action is not None else None,
+                run_id,
+            ),
         )
 
 
@@ -135,7 +146,16 @@ def get_run(run_id: str) -> dict[str, Any] | None:
         steps = conn.execute(
             "SELECT * FROM steps WHERE run_id = ? ORDER BY step_index, id", (run_id,)
         ).fetchall()
-        return {"run": dict(run), "steps": [_decode_step(s) for s in steps]}
+        run_dict = dict(run)
+        if run_dict.get("pending_action"):
+            run_dict["pending_action"] = json.loads(run_dict["pending_action"])
+        return {"run": run_dict, "steps": [_decode_step(s) for s in steps]}
+
+
+def count_steps(run_id: str) -> int:
+    with _conn() as conn:
+        row = conn.execute("SELECT COUNT(*) AS n FROM steps WHERE run_id = ?", (run_id,)).fetchone()
+        return int(row["n"])
 
 
 def list_runs(limit: int = 50) -> list[dict[str, Any]]:
