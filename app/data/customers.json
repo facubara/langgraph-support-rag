@@ -1,0 +1,29 @@
+{
+  "cus_001": {
+    "customer_id": "cus_001",
+    "name": "Ada Lovelace",
+    "email": "ada@example.com",
+    "plan": "pro",
+    "status": "active",
+    "since": "2024-02-11",
+    "payment_method": "visa-4242"
+  },
+  "cus_002": {
+    "customer_id": "cus_002",
+    "name": "Grace Hopper",
+    "email": "grace@example.com",
+    "plan": "team",
+    "status": "active",
+    "since": "2023-09-01",
+    "payment_method": "mastercard-5151"
+  },
+  "cus_003": {
+    "customer_id": "cus_003",
+    "name": "Alan Turing",
+    "email": "alan@example.com",
+    "plan": "enterprise",
+    "status": "past_due",
+    "since": "2022-05-20",
+    "payment_method": "amex-3737"
+  }
+}

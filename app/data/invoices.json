@@ -1,0 +1,14 @@
+{
+  "cus_001": [
+    {"invoice_id": "inv_1001", "date": "2026-04-03", "amount": 49.0, "status": "paid", "description": "Pro plan — April"},
+    {"invoice_id": "inv_1002", "date": "2026-05-03", "amount": 49.0, "status": "paid", "description": "Pro plan — May"},
+    {"invoice_id": "inv_1003", "date": "2026-05-03", "amount": 49.0, "status": "paid", "description": "Pro plan — May (duplicate)"}
+  ],
+  "cus_002": [
+    {"invoice_id": "inv_2001", "date": "2026-05-01", "amount": 199.0, "status": "paid", "description": "Team plan — May"},
+    {"invoice_id": "inv_2002", "date": "2026-06-01", "amount": 199.0, "status": "paid", "description": "Team plan — June"}
+  ],
+  "cus_003": [
+    {"invoice_id": "inv_3001", "date": "2026-05-15", "amount": 999.0, "status": "past_due", "description": "Enterprise plan — May"}
+  ]
+}

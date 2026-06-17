@@ -42,16 +42,35 @@ user → Router → Billing/RAG ⇄ tools ⇄ KB → Policy/Safety (HITL gate) �
 
 ## Tech stack
 
-Python · LangGraph · FastAPI · SQLite (state + traces) · Chroma/pgvector (KB) · Docker Compose ·
-OpenAI / Anthropic (configurable).
+Python · LangGraph · FastAPI · SQLite (state + traces) · Chroma/pgvector (KB) · Docker Compose.
+
+**Provider-configurable LLM** via env var: a built-in **mock** provider (default — runs the whole
+pipeline with no API key and zero cost) and **Gemini**, with the interface designed so an OpenAI or
+Anthropic adapter is a single drop-in file.
 
 ## Quick start
 
 ```bash
-cp .env.example .env   # add your API key
+python -m venv .venv && . .venv/Scripts/activate   # Windows; use bin/activate on macOS/Linux
 pip install -r requirements.txt
-# (run instructions added as the app comes together)
+cp .env.example .env                                # defaults to mock provider — no key needed
+
+uvicorn app.main:app --reload                       # API on http://localhost:8000
+# open http://localhost:8000/docs for the interactive API
+
+pytest                                              # run the test suite
 ```
+
+### Try it (mock mode, no key)
+
+```bash
+curl http://localhost:8000/health
+curl http://localhost:8000/tools
+curl -X POST http://localhost:8000/tools/get_invoice_history -H "content-type: application/json" -d '{"args":{"customer_id":"cus_001"}}'
+curl -X POST http://localhost:8000/runs -H "content-type: application/json" -d '{"message":"I was charged twice this month, can I get a refund?"}'
+```
+
+To use real Gemini calls: set `LLM_PROVIDER=gemini` and `GOOGLE_API_KEY=...` in `.env`.
 
 ## License
 

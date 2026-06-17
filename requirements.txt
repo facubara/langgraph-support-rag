@@ -1,11 +1,21 @@
 # Pinned during the build; starter set.
+# Core orchestration (used from Day 2)
 langgraph
 langchain-core
-anthropic
-openai
+
+# LLM providers (lazy-imported; only needed for non-mock providers)
+google-generativeai
+
+# Backend
 fastapi
 uvicorn[standard]
 pydantic
 pydantic-settings
-chromadb
 python-dotenv
+
+# Vector DB (used from Day 3)
+chromadb
+
+# Dev / test
+pytest
+httpx

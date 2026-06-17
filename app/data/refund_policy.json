@@ -1,0 +1,30 @@
+{
+  "default": {
+    "window_days": 14,
+    "duplicate_charges": "always_refundable",
+    "prorated": false,
+    "requires_approval_above": 500.0,
+    "notes": "Refunds allowed within 14 days of charge. Duplicate charges are always refundable."
+  },
+  "pro": {
+    "window_days": 14,
+    "duplicate_charges": "always_refundable",
+    "prorated": false,
+    "requires_approval_above": 500.0,
+    "notes": "Pro plan: 14-day refund window; duplicate charges always refundable."
+  },
+  "team": {
+    "window_days": 30,
+    "duplicate_charges": "always_refundable",
+    "prorated": true,
+    "requires_approval_above": 500.0,
+    "notes": "Team plan: 30-day window, prorated refunds on downgrade."
+  },
+  "enterprise": {
+    "window_days": 0,
+    "duplicate_charges": "review_required",
+    "prorated": true,
+    "requires_approval_above": 0.0,
+    "notes": "Enterprise refunds are contract-governed and always require human review."
+  }
+}
