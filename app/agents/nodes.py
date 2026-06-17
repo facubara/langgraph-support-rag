@@ -12,6 +12,7 @@ import re
 import time
 from typing import Any
 
+from ..config import settings
 from ..llm.factory import get_llm
 from ..tools.registry import call_tool
 
@@ -85,14 +86,18 @@ def billing_rag(state: dict[str, Any]) -> dict[str, Any]:
     tool_calls: list[dict[str, Any]] = []
     context: list[dict[str, Any]] = []
 
-    # Retrieve grounding from the knowledge base (RAG — implemented Day 3).
-    retrieved: list[dict[str, Any]] = []
+    # RAG: retrieve top-k KB candidates, then split by score threshold so we can show
+    # exactly what context was included vs. excluded for this run.
+    candidates: list[dict[str, Any]] = []
     try:
         from ..rag.retriever import get_retriever
 
-        retrieved = get_retriever().search(state["message"], k=3)
+        candidates = get_retriever().search(state["message"], k=settings.rag_top_k)
     except Exception:
-        retrieved = []
+        candidates = []
+    threshold = settings.rag_min_score
+    retrieved = [c for c in candidates if c["score"] >= threshold]
+    excluded = [{"source": "kb", **c} for c in candidates if c["score"] < threshold]
     context.extend({"source": "kb", **c} for c in retrieved)
 
     # Tool use: pull the customer's profile + invoices when we know who they are.
@@ -115,12 +120,16 @@ def billing_rag(state: dict[str, Any]) -> dict[str, Any]:
     trace = [_step("tool", tc["tool"], started, output=tc["result"]) for tc in tool_calls]
     trace.insert(0, _step("agent", "billing_rag", started,
                           input={"intent": intent, "customer_id": customer_id},
-                          output={"retrieved": len(retrieved), "tools": [t["tool"] for t in tool_calls]}))
+                          output={
+                              "included": [{"title": c["title"], "score": c["score"]} for c in retrieved],
+                              "excluded": [{"title": c["title"], "score": c["score"]} for c in excluded],
+                              "tools": [t["tool"] for t in tool_calls],
+                          }))
 
     return {
         "retrieved": retrieved,
         "context_included": context,
-        "context_excluded": [],
+        "context_excluded": excluded,
         "tool_calls": tool_calls,
         "trace": trace,
     }

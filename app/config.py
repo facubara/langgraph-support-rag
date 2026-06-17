@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     llm_max_retries: int = 2
     llm_fallback_model: str = ""
 
+    # Retrieval
+    rag_top_k: int = 5
+    rag_min_score: float = 0.10
+
     # Storage
     sqlite_path: str = "data/runtime/app.sqlite"
     vector_db: str = "chroma"
