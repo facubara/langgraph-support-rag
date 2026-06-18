@@ -164,3 +164,12 @@ def list_runs(limit: int = 50) -> list[dict[str, Any]]:
             "SELECT * FROM runs ORDER BY created_at DESC LIMIT ?", (limit,)
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def list_replays(run_id: str) -> list[dict[str, Any]]:
+    """Runs that were created by replaying `run_id`, most recent first."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM runs WHERE replay_of = ? ORDER BY created_at DESC", (run_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]

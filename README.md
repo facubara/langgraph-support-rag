@@ -56,7 +56,8 @@ pip install -r requirements.txt
 cp .env.example .env                                # defaults to mock provider — no key needed
 
 uvicorn app.main:app --reload                       # API on http://localhost:8000
-# open http://localhost:8000/docs for the interactive API
+# open http://localhost:8000/docs       for the interactive API
+# open http://localhost:8000/dashboard  for the run/trace observability dashboard
 
 pytest                                              # run the test suite
 ```
@@ -68,6 +69,10 @@ curl http://localhost:8000/health
 curl http://localhost:8000/tools
 curl -X POST http://localhost:8000/tools/get_invoice_history -H "content-type: application/json" -d '{"args":{"customer_id":"cus_001"}}'
 curl -X POST http://localhost:8000/runs -H "content-type: application/json" -d '{"message":"I was charged twice this month, can I get a refund?"}'
+
+# Inspect and deterministically replay a run (serves the recorded LLM outputs; diffs the result)
+curl http://localhost:8000/runs/<run_id>
+curl -X POST http://localhost:8000/runs/<run_id>/replay
 ```
 
 To use real Gemini calls: set `LLM_PROVIDER=gemini` and `GOOGLE_API_KEY=...` in `.env`.

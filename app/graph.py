@@ -61,12 +61,28 @@ def _persist(run_id: str, final_state: dict[str, Any]) -> None:
 
 
 def run_conversation(message: str, customer_id: str | None = None,
-                     run_id: str | None = None) -> dict[str, Any]:
+                     run_id: str | None = None, replay_of: str | None = None,
+                     recorded_responses: list | None = None) -> dict[str, Any]:
     run_id = run_id or uuid.uuid4().hex[:12]
-    run_store.create_run(run_id, message)
+    run_store.create_run(run_id, message, replay_of=replay_of)
 
     initial: AgentState = {"run_id": run_id, "message": message, "customer_id": customer_id}
-    final_state = get_graph().invoke(initial)
+
+    # When replaying, install the recorded LLM outputs for the duration of this invocation
+    # so the Response agent reproduces the original phrasing deterministically.
+    token = None
+    if recorded_responses is not None:
+        from . import replay
+
+        token = replay.begin(recorded_responses)
+    try:
+        final_state = get_graph().invoke(initial)
+    finally:
+        if token is not None:
+            from . import replay
+
+            replay.end(token)
+
     _persist(run_id, final_state)
 
     return {

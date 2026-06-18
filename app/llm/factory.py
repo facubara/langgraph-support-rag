@@ -57,6 +57,14 @@ class ResilientLLM(LLMClient):
 
 
 def get_llm() -> LLMClient:
+    # In replay mode, serve the original run's recorded completions instead of calling a
+    # provider — this is what makes a replayed conversation deterministic.
+    from ..replay import ReplayLLM, active_replay
+
+    recorded = active_replay()
+    if recorded is not None:
+        return ReplayLLM(recorded)
+
     primary = build_client(settings.llm_provider, settings.llm_model, settings.google_api_key)
     fallback: LLMClient | None = None
     if settings.llm_fallback_model and settings.llm_provider != "mock":

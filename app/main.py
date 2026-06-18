@@ -1,13 +1,17 @@
 """FastAPI surface for the demo.
 
-Day 1 endpoints:
-- GET  /health            — liveness + active provider/model
-- GET  /tools             — list tools and their JSON arg schemas
-- POST /tools/{name}      — validate + invoke a single tool (test harness)
-- POST /runs              — create a run (Day 1: single mock/LLM step; the multi-agent
-                            graph replaces the stub on Day 2)
-- GET  /runs              — list recent runs
-- GET  /runs/{run_id}     — inspect a run and its full step trace
+Endpoints:
+- GET  /health                  — liveness + active provider/model
+- GET  /tools                   — list tools and their JSON arg schemas
+- POST /tools/{name}            — validate + invoke a single tool (test harness)
+- POST /runs                    — run one conversation turn through the multi-agent graph
+- GET  /runs                    — list recent runs
+- GET  /runs/{run_id}           — inspect a run and its full step trace
+- POST /runs/{run_id}/approve   — HITL: execute the risky action a run is awaiting
+- POST /runs/{run_id}/reject    — HITL: reject the proposed action
+- POST /runs/{run_id}/replay    — deterministically replay a run and diff vs. the original
+- GET  /dashboard               — HTML run list (observability)
+- GET  /dashboard/runs/{run_id} — HTML run detail: full trace + replay button
 
 Run with:  uvicorn app.main:app --reload
 """
@@ -17,8 +21,10 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+from . import dashboard, replay
 from .agents.approval import execute_approved_action
 from .config import settings
 from .graph import run_conversation
@@ -116,6 +122,28 @@ def approve_run(run_id: str) -> dict:
     return {"run_id": run_id, "status": "completed", "result": result}
 
 
+@app.post("/runs/{run_id}/replay")
+def replay_run(run_id: str) -> dict:
+    """Deterministically replay a recorded run and diff the result against the original.
+
+    Re-runs the graph with the original message + resolved customer id, serving the run's
+    recorded LLM outputs instead of calling a provider, so the outcome is reproducible.
+    """
+    original = _require_run(run_id)
+    new_run_id = run_conversation(
+        original["run"]["user_message"],
+        customer_id=replay.recorded_customer_id(original),
+        replay_of=run_id,
+        recorded_responses=replay.recorded_llm_responses(original),
+    )["run_id"]
+    new_data = _require_run(new_run_id)
+    return {
+        "original_run_id": run_id,
+        "replay_run_id": new_run_id,
+        "comparison": replay.compare_runs(original, new_data),
+    }
+
+
 @app.post("/runs/{run_id}/reject")
 def reject_run(run_id: str) -> dict:
     data = _require_run(run_id)
@@ -130,3 +158,15 @@ def reject_run(run_id: str) -> dict:
                          final_response="The proposed action was rejected by a human reviewer.",
                          status="rejected", pending_action=None)
     return {"run_id": run_id, "status": "rejected"}
+
+
+# --------------------------------------------------------------- observability dashboard
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard_index() -> str:
+    return dashboard.render_run_list(run_store.list_runs())
+
+
+@app.get("/dashboard/runs/{run_id}", response_class=HTMLResponse)
+def dashboard_run(run_id: str) -> str:
+    data = _require_run(run_id)
+    return dashboard.render_run_detail(data, run_store.list_replays(run_id))
