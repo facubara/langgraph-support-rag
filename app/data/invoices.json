@@ -9,6 +9,7 @@
     {"invoice_id": "inv_2002", "date": "2026-06-01", "amount": 199.0, "status": "paid", "description": "Team plan — June"}
   ],
   "cus_003": [
-    {"invoice_id": "inv_3001", "date": "2026-05-15", "amount": 999.0, "status": "past_due", "description": "Enterprise plan — May"}
+    {"invoice_id": "inv_3001", "date": "2026-05-15", "amount": 999.0, "status": "paid", "description": "Enterprise plan — May"},
+    {"invoice_id": "inv_3002", "date": "2026-05-15", "amount": 999.0, "status": "paid", "description": "Enterprise plan — May (duplicate)"}
   ]
 }

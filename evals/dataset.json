@@ -1,0 +1,49 @@
+[
+  {"id": "dup_pro", "message": "I was charged twice this month", "customer_id": "cus_001",
+   "expect": {"intent": "duplicate_charge", "tools": ["check_refund_policy", "get_customer_profile", "get_invoice_history"], "grounded": true, "action": "create_refund_ticket"}},
+
+  {"id": "dup_pro_synonym", "message": "Looks like I was double charged", "customer_id": "cus_001",
+   "expect": {"intent": "duplicate_charge", "tools": ["check_refund_policy", "get_customer_profile", "get_invoice_history"], "grounded": true, "action": "create_refund_ticket"}},
+
+  {"id": "dup_team_none", "message": "I think I was charged twice", "customer_id": "cus_002",
+   "expect": {"intent": "duplicate_charge", "tools": ["check_refund_policy", "get_customer_profile", "get_invoice_history"], "grounded": true, "action": null}},
+
+  {"id": "dup_enterprise_review", "message": "I was charged twice", "customer_id": "cus_003",
+   "expect": {"intent": "duplicate_charge", "tools": ["check_refund_policy", "get_customer_profile", "get_invoice_history"], "grounded": true, "action": "escalate_to_human"}},
+
+  {"id": "refund_pro", "message": "Can I get a refund?", "customer_id": "cus_001",
+   "expect": {"intent": "refund_request", "tools": ["check_refund_policy", "get_customer_profile", "get_invoice_history"], "grounded": true, "action": "create_refund_ticket"}},
+
+  {"id": "refund_team", "message": "I'd like my money back", "customer_id": "cus_002",
+   "expect": {"intent": "refund_request", "tools": ["check_refund_policy", "get_customer_profile", "get_invoice_history"], "grounded": true, "action": "create_refund_ticket"}},
+
+  {"id": "refund_enterprise_escalate", "message": "I want a refund please", "customer_id": "cus_003",
+   "expect": {"intent": "refund_request", "tools": ["check_refund_policy", "get_customer_profile", "get_invoice_history"], "grounded": true, "action": "escalate_to_human"}},
+
+  {"id": "escalate_human_pro", "message": "Let me speak to a human", "customer_id": "cus_001",
+   "expect": {"intent": "escalation", "tools": ["get_customer_profile", "get_invoice_history"], "grounded": true, "action": "escalate_to_human"}},
+
+  {"id": "escalate_manager_team", "message": "I want to talk to a manager", "customer_id": "cus_002",
+   "expect": {"intent": "escalation", "tools": ["get_customer_profile", "get_invoice_history"], "grounded": true, "action": "escalate_to_human"}},
+
+  {"id": "billing_latest_invoice", "message": "What is on my latest invoice?", "customer_id": "cus_001",
+   "expect": {"intent": "billing_question", "tools": ["get_customer_profile", "get_invoice_history"], "grounded": true, "action": null}},
+
+  {"id": "billing_explain_charge", "message": "Can you explain my last charge?", "customer_id": "cus_002",
+   "expect": {"intent": "billing_question", "tools": ["get_customer_profile", "get_invoice_history"], "grounded": true, "action": null}},
+
+  {"id": "faq_cancel", "message": "How do I cancel my subscription?",
+   "expect": {"intent": "billing_question", "tools": [], "grounded": true, "action": null}},
+
+  {"id": "faq_plans", "message": "What plans do you offer?",
+   "expect": {"intent": "billing_question", "tools": [], "grounded": true, "action": null}},
+
+  {"id": "faq_refund_window", "message": "What is the refund window on the pro plan?",
+   "expect": {"intent": "refund_request", "tools": ["check_refund_policy"], "grounded": true, "action": null}},
+
+  {"id": "offtopic_joke", "message": "Tell me a joke about platypuses",
+   "expect": {"intent": "other", "tools": [], "grounded": false, "action": null}},
+
+  {"id": "offtopic_capital", "message": "What is the capital of France?",
+   "expect": {"intent": "other", "tools": [], "grounded": false, "action": null}}
+]

@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     llm_max_retries: int = 2
     llm_fallback_model: str = ""
 
+    # Prompts
+    prompt_version: str = "v2"
+
     # Retrieval
     rag_top_k: int = 5
     rag_min_score: float = 0.10

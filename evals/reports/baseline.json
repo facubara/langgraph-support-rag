@@ -1,0 +1,502 @@
+{
+  "label": "baseline",
+  "config": {},
+  "summary": {
+    "n": 16,
+    "task_success": 1.0,
+    "intent_accuracy": 1.0,
+    "tool_correctness": 1.0,
+    "grounding_accuracy": 1.0,
+    "action_correctness": 1.0,
+    "policy_compliance": 1.0,
+    "escalation_correctness": 1.0,
+    "avg_latency_ms": 42.73,
+    "total_cost_usd": 0.0
+  },
+  "cases": [
+    {
+      "id": "dup_pro",
+      "message": "I was charged twice this month",
+      "expect": {
+        "intent": "duplicate_charge",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "create_refund_ticket"
+      },
+      "actual": {
+        "intent": "duplicate_charge",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "create_refund_ticket"
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 160.368,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "dup_pro_synonym",
+      "message": "Looks like I was double charged",
+      "expect": {
+        "intent": "duplicate_charge",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "create_refund_ticket"
+      },
+      "actual": {
+        "intent": "duplicate_charge",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "create_refund_ticket"
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 50.214,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "dup_team_none",
+      "message": "I think I was charged twice",
+      "expect": {
+        "intent": "duplicate_charge",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": null
+      },
+      "actual": {
+        "intent": "duplicate_charge",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": null
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 43.131,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "dup_enterprise_review",
+      "message": "I was charged twice",
+      "expect": {
+        "intent": "duplicate_charge",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "escalate_to_human"
+      },
+      "actual": {
+        "intent": "duplicate_charge",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "escalate_to_human"
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 45.939,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "refund_pro",
+      "message": "Can I get a refund?",
+      "expect": {
+        "intent": "refund_request",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "create_refund_ticket"
+      },
+      "actual": {
+        "intent": "refund_request",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "create_refund_ticket"
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 40.525,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "refund_team",
+      "message": "I'd like my money back",
+      "expect": {
+        "intent": "refund_request",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "create_refund_ticket"
+      },
+      "actual": {
+        "intent": "refund_request",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "create_refund_ticket"
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 40.23,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "refund_enterprise_escalate",
+      "message": "I want a refund please",
+      "expect": {
+        "intent": "refund_request",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "escalate_to_human"
+      },
+      "actual": {
+        "intent": "refund_request",
+        "tools": [
+          "check_refund_policy",
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "escalate_to_human"
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 38.658,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "escalate_human_pro",
+      "message": "Let me speak to a human",
+      "expect": {
+        "intent": "escalation",
+        "tools": [
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "escalate_to_human"
+      },
+      "actual": {
+        "intent": "escalation",
+        "tools": [
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "escalate_to_human"
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 36.432,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "escalate_manager_team",
+      "message": "I want to talk to a manager",
+      "expect": {
+        "intent": "escalation",
+        "tools": [
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "escalate_to_human"
+      },
+      "actual": {
+        "intent": "escalation",
+        "tools": [
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": "escalate_to_human"
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 42.505,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "billing_latest_invoice",
+      "message": "What is on my latest invoice?",
+      "expect": {
+        "intent": "billing_question",
+        "tools": [
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": null
+      },
+      "actual": {
+        "intent": "billing_question",
+        "tools": [
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": null
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 39.822,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "billing_explain_charge",
+      "message": "Can you explain my last charge?",
+      "expect": {
+        "intent": "billing_question",
+        "tools": [
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": null
+      },
+      "actual": {
+        "intent": "billing_question",
+        "tools": [
+          "get_customer_profile",
+          "get_invoice_history"
+        ],
+        "grounded": true,
+        "action": null
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 32.341,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "faq_cancel",
+      "message": "How do I cancel my subscription?",
+      "expect": {
+        "intent": "billing_question",
+        "tools": [],
+        "grounded": true,
+        "action": null
+      },
+      "actual": {
+        "intent": "billing_question",
+        "tools": [],
+        "grounded": true,
+        "action": null
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 24.427,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "faq_plans",
+      "message": "What plans do you offer?",
+      "expect": {
+        "intent": "billing_question",
+        "tools": [],
+        "grounded": true,
+        "action": null
+      },
+      "actual": {
+        "intent": "billing_question",
+        "tools": [],
+        "grounded": true,
+        "action": null
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 22.514,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "faq_refund_window",
+      "message": "What is the refund window on the pro plan?",
+      "expect": {
+        "intent": "refund_request",
+        "tools": [
+          "check_refund_policy"
+        ],
+        "grounded": true,
+        "action": null
+      },
+      "actual": {
+        "intent": "refund_request",
+        "tools": [
+          "check_refund_policy"
+        ],
+        "grounded": true,
+        "action": null
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 33.823,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "offtopic_joke",
+      "message": "Tell me a joke about platypuses",
+      "expect": {
+        "intent": "other",
+        "tools": [],
+        "grounded": false,
+        "action": null
+      },
+      "actual": {
+        "intent": "other",
+        "tools": [],
+        "grounded": false,
+        "action": null
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 16.813,
+      "cost_usd": 0.0
+    },
+    {
+      "id": "offtopic_capital",
+      "message": "What is the capital of France?",
+      "expect": {
+        "intent": "other",
+        "tools": [],
+        "grounded": false,
+        "action": null
+      },
+      "actual": {
+        "intent": "other",
+        "tools": [],
+        "grounded": false,
+        "action": null
+      },
+      "checks": {
+        "intent": true,
+        "tools": true,
+        "grounding": true,
+        "action": true
+      },
+      "passed": true,
+      "latency_ms": 15.941,
+      "cost_usd": 0.0
+    }
+  ]
+}

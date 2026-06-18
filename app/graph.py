@@ -75,4 +75,6 @@ def run_conversation(message: str, customer_id: str | None = None,
         "response": final_state.get("final_response"),
         "status": final_state.get("status"),
         "pending_action": final_state.get("pending_action"),
+        "grounded": bool(final_state.get("grounded", False)),
+        "tools": [t["tool"] for t in final_state.get("tool_calls", [])],
     }

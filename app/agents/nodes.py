@@ -207,13 +207,6 @@ def policy_safety(state: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------- response agent
-_SYSTEM = (
-    "You are a SaaS customer-support assistant. Answer ONLY using the provided context "
-    "(tool results and knowledge-base passages). If the context does not support an answer, "
-    "say you don't have enough information and offer to escalate. Never invent account details."
-)
-
-
 def _context_to_text(context: list[dict[str, Any]]) -> str:
     lines = []
     for c in context:
@@ -245,8 +238,10 @@ def response(state: dict[str, Any]) -> dict[str, Any]:
         f"Proposed action requiring human approval: {pending}\n\n"
         "Write a concise, grounded reply."
     )
+    from ..prompts import get_response_prompt
+
     llm = get_llm()
-    resp = llm.complete(system=_SYSTEM, prompt=prompt)
+    resp = llm.complete(system=get_response_prompt(settings.prompt_version), prompt=prompt)
 
     text = resp.text
     if pending is not None:
