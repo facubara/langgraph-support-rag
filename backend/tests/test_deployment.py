@@ -12,7 +12,8 @@ from pathlib import Path
 
 from app.config import Settings
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent          # backend/ — the Dockerfile + .env.example live here
+REPO_ROOT = ROOT.parent                                 # monorepo root — docker-compose.yml lives here
 
 
 def test_provider_config_is_env_driven(monkeypatch):
@@ -50,7 +51,7 @@ def test_dockerfile_runs_the_app_on_the_expected_port():
 
 
 def test_compose_is_coherent_with_the_image():
-    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
-    assert "build: ." in compose
+    compose = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    assert "./backend" in compose                # build context points at the backend package
     assert ":8000" in compose                    # maps the container port the app listens on
     assert "/app/data/runtime" in compose        # persists the sqlite run/trace store

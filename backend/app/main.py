@@ -21,6 +21,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -39,6 +40,18 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="langgraph-support-rag", version="0.1.0", lifespan=lifespan)
+
+# The Next.js frontend (Vercel + localhost) is a separate origin; allow it to call the API.
+# With a BFF proxy the browser never hits this directly, but CORS keeps local dev frictionless.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list,
+    allow_origin_regex=settings.cors_allow_origin_regex or None,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+)
 
 
 @app.get("/health")

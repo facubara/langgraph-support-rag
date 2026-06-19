@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/* Manual dark-mode override hook (system preference is handled below via CSS vars). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------- design tokens
+   Semantic colors live as CSS vars so components use stable names (bg-card,
+   text-muted-foreground, ...) and the whole palette flips with the theme. */
+:root {
+  --background: #f7f7f8;
+  --foreground: #0b0b0f;
+  --card: #ffffff;
+  --card-foreground: #0b0b0f;
+  --muted: #f0f0f2;
+  --muted-foreground: #6b7280;
+  --border: #e7e7ea;
+  --input: #e2e2e6;
+  --ring: #6366f1;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --accent: #7c3aed;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --radius: 0.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0c;
+    --foreground: #f4f4f6;
+    --card: #131318;
+    --card-foreground: #f4f4f6;
+    --muted: #1a1a20;
+    --muted-foreground: #9a9aa6;
+    --border: #26262e;
+    --input: #2a2a33;
+    --ring: #818cf8;
+    --primary: #6366f1;
+    --primary-foreground: #ffffff;
+    --accent: #a78bfa;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+  }
+}
+
+.dark {
+  --background: #0a0a0c;
+  --foreground: #f4f4f6;
+  --card: #131318;
+  --card-foreground: #f4f4f6;
+  --muted: #1a1a20;
+  --muted-foreground: #9a9aa6;
+  --border: #26262e;
+  --input: #2a2a33;
+  --ring: #818cf8;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --accent: #a78bfa;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 0.25rem);
+  --radius-sm: calc(var(--radius) - 0.4rem);
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle, reusable surface treatments used across the marketing + app shells. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.glow {
+  background: radial-gradient(60% 60% at 50% 0%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 70%);
+}
+
+@keyframes pulse-node {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.animate-node {
+  animation: pulse-node 1.1s ease-in-out infinite;
+}

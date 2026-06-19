@@ -1,89 +1,86 @@
-# langgraph-support-rag
+# Support Copilot — multi-agent RAG assistant
 
-A production-style **multi-agent customer-support / billing assistant** demo built to show
-the concepts that separate a real agentic system from a toy chatbot: multi-agent orchestration,
-RAG grounding, tool use with human-in-the-loop safety, an evaluation framework, full-trace
-observability with deterministic replay, and one-command Docker deployment.
+A production-style **multi-agent customer-support / billing assistant**, built as a full-stack
+portfolio piece. It shows the concepts that separate a real agentic system from a toy chatbot:
+multi-agent orchestration, RAG grounding, tool use with human-in-the-loop safety, an evaluation
+framework, full-trace observability with deterministic replay — now with a polished **Next.js**
+frontend, **Google sign-in**, streaming, and per-user rate limiting.
 
-## What it does
+> **Monorepo:** a Python **FastAPI** backend (`backend/`) and a **Next.js** frontend (`frontend/`).
+> Frontend deploys to **Vercel**, backend to **Render**; they talk over an authenticated
+> backend-for-frontend (BFF) proxy.
 
-Handles realistic SaaS support scenarios — billing questions, duplicate charges, refund-policy
-checks, and escalation to human review — using a small multi-agent graph that only answers from
-approved tool data and a grounded knowledge base.
+```
+langgraph-support-rag/
+├── backend/      FastAPI · LangGraph · RAG · SQLite · evals   (deploys to Render)
+├── frontend/     Next.js 16 · Auth.js (Google) · Tailwind     (deploys to Vercel)
+└── docker-compose.yml   one-command local backend
+```
 
 ## Architecture
+
+```
+Browser ──► Next.js (Vercel)                          FastAPI (Render)
+            ├─ Auth.js (Google OAuth)                   ├─ /runs, /runs/stream (SSE)
+            ├─ chat UI · live agent graph · dashboard   ├─ LangGraph: router → billing/RAG
+            └─ /api/* BFF proxy ────────────────────────►   → policy/safety (HITL) → response
+                 adds shared secret + user identity      └─ SQLite traces on a persistent disk
+```
 
 Four agents on a [LangGraph](https://langchain-ai.github.io/langgraph/) state graph:
 
 1. **Router** — classifies intent and routes the conversation.
 2. **Billing / RAG Agent** — retrieves context and calls business tools to answer.
-3. **Policy / Safety Agent** — checks refund eligibility against policy and gates risky actions.
-4. **Response Agent** — composes the final grounded reply and reports the context/tools it used.
+3. **Policy / Safety Agent** — checks refund eligibility and gates risky actions behind human approval.
+4. **Response Agent** — composes the grounded reply and reports the context/tools it used.
 
-**Why LangGraph:** the graph and run-state are explicit, which makes orchestration, agent handoffs,
-and deterministic replay first-class — exactly what evals and observability need.
+**Auth model (BFF):** the browser only talks to Next.js. Server-side route handlers read the Auth.js
+session and forward requests to FastAPI with a shared secret + identity headers, so the browser never
+hits the backend directly and the backend can rate-limit and attribute every request to a user.
 
-```
-user → Router → Billing/RAG ⇄ tools ⇄ KB → Policy/Safety (HITL gate) → Response → user
-                         │
-                  every step traced → SQLite → dashboard + replay
-```
+## What it demonstrates
 
-## Capabilities (target)
-
-- **Model orchestration** — provider/model via env vars; retry, timeout, and fallback on LLM calls; versioned prompts.
-- **Context optimization** — RAG over a policy/FAQ knowledge base; per-run logging of context included vs. excluded; token-budget trimming.
-- **Tool use & grounding** — mock business tools (`get_customer_profile`, `get_invoice_history`, `check_refund_policy`, `create_refund_ticket`, `escalate_to_human`); tool-call validation; human-in-the-loop approval before risky actions; refuses to answer when unsupported by context.
-- **Evaluation framework** — offline test dataset; scored report for task success, grounding, tool correctness, policy compliance, and escalation correctness; regression diff between prompt/model versions.
-- **Observability** — every prompt, model call, tool call, latency, cost, and error traced to SQLite; a dashboard to inspect runs and **replay** a failed conversation deterministically.
-- **Deployment** — `docker compose up`, env-based provider configuration, architecture doc.
-
-## Tech stack
-
-Python · LangGraph · FastAPI · SQLite (state + traces) · Chroma/pgvector (KB) · Docker Compose.
-
-**Provider-configurable LLM** via env var: a built-in **mock** provider (default — runs the whole
-pipeline with no API key and zero cost) and **Gemini**, with the interface designed so an OpenAI or
-Anthropic adapter is a single drop-in file.
+- **Multi-agent orchestration** — explicit LangGraph state machine with conditional routing and hand-offs.
+- **RAG grounding** — retrieval over a policy/FAQ KB with score thresholds; refuses when unsupported.
+- **Tool use & HITL safety** — validated business tools; refunds/escalations pause for human approval.
+- **Streaming** — token-by-token SSE responses with a live, lighting-up agent graph.
+- **Observability** — every prompt, tool call, latency, and cost traced to SQLite; deterministic replay.
+- **Evaluation** — offline scored dataset with regression diffs between prompt/model versions.
+- **Auth & abuse control** — Google sign-in, per-user rate limiting, sign-in tracking.
 
 ## Quick start
 
+### Backend (FastAPI)
+
 ```bash
+cd backend
 python -m venv .venv && . .venv/Scripts/activate   # Windows; use bin/activate on macOS/Linux
 pip install -r requirements.txt
-cp .env.example .env                                # defaults to mock provider — no key needed
-
-uvicorn app.main:app --reload                       # API on http://localhost:8000
-# open http://localhost:8000/docs       for the interactive API
-# open http://localhost:8000/dashboard  for the run/trace observability dashboard
-
+cp .env.example .env                                # defaults to the mock provider — no key needed
+uvicorn app.main:app --reload                       # http://localhost:8000  (/docs, /dashboard)
 pytest                                              # run the test suite
 ```
 
-### Or with Docker (one command)
+### Frontend (Next.js)
 
 ```bash
-docker compose up --build                           # API + dashboard on http://localhost:8000
+cd frontend
+npm install
+cp .env.example .env.local                          # set AUTH_SECRET + AUTH_GOOGLE_* for real sign-in
+npm run dev                                          # http://localhost:3000
 ```
 
-Runs on the built-in **mock** provider with no API key; the SQLite run/trace store persists on a
-named volume across restarts. For real Gemini calls, `cp .env.example .env`, set `LLM_PROVIDER=gemini`
-and `GOOGLE_API_KEY=...`, then `docker compose up --build` again.
-
-### Try it (mock mode, no key)
+### Backend via Docker (one command)
 
 ```bash
-curl http://localhost:8000/health
-curl http://localhost:8000/tools
-curl -X POST http://localhost:8000/tools/get_invoice_history -H "content-type: application/json" -d '{"args":{"customer_id":"cus_001"}}'
-curl -X POST http://localhost:8000/runs -H "content-type: application/json" -d '{"message":"I was charged twice this month, can I get a refund?"}'
-
-# Inspect and deterministically replay a run (serves the recorded LLM outputs; diffs the result)
-curl http://localhost:8000/runs/<run_id>
-curl -X POST http://localhost:8000/runs/<run_id>/replay
+docker compose up --build                            # FastAPI on http://localhost:8000
 ```
 
-To use real Gemini calls: set `LLM_PROVIDER=gemini` and `GOOGLE_API_KEY=...` in `.env`.
+Runs on the built-in **mock** provider (no API key, zero cost); the SQLite run/trace store persists on
+a named volume. For real Gemini calls, set `LLM_PROVIDER=gemini` + `GOOGLE_API_KEY` in `backend/.env`.
+
+See [`backend/README` / docs](backend/docs/ARCHITECTURE.md) and [`frontend/README.md`](frontend/README.md)
+for package-level details.
 
 ## License
 

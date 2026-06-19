@@ -24,13 +24,14 @@ env/
 chroma/
 .chroma/
 data/runtime/
+backend/data/runtime/
 traces/
 *.log
 
 # Eval reports are regenerated; keep only the committed baseline sample.
-evals/reports/*
-!evals/reports/baseline.json
-!evals/reports/baseline.md
+backend/evals/reports/*
+!backend/evals/reports/baseline.json
+!backend/evals/reports/baseline.md
 
 # Editor / OS
 .vscode/

@@ -34,5 +34,14 @@ class Settings(BaseSettings):
     api_port: int = 8000
     dashboard_port: int = 8501
 
+    # CORS — the Next.js frontend (Vercel + local dev) calls this API.
+    # Comma-separated; kept a str (not list) to avoid pydantic-settings JSON-list env parsing.
+    cors_allow_origins: str = "http://localhost:3000"
+    cors_allow_origin_regex: str = ""        # e.g. https://.*-myproject\.vercel\.app for preview URLs
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
 
 settings = Settings()
