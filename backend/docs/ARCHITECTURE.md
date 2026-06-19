@@ -85,6 +85,23 @@ Tool results come from static fixtures and routing/policy are rule-based, so the
 original outcome and the endpoint returns a diff (intent, status, response, pending action, tool
 sequence) against the source run. The replay is stored as its own run linked via `replay_of`.
 
+## Security & access control
+
+The Next.js app is the only intended caller (a backend-for-frontend). Its server-side route
+handlers read the Auth.js session and forward each request with a shared secret
+(`X-Internal-Secret`) plus the user's identity (`X-User-Id` / `X-User-Email`). FastAPI trusts those
+identity headers only because the secret gates them (`app/auth.py`).
+
+- **`AUTH_REQUIRED`** (default off for the demo/tests) — when on, write endpoints demand a valid
+  shared secret + user id (`require_user`); `/health` stays open. Anonymous mode attributes requests
+  to the supplied id or the client IP so rate limiting still applies.
+- **Rate limiting** (`app/ratelimit.py`) — a per-user sliding window (default 30/60s, in-process)
+  on `POST /runs` and `/runs/stream`; over-limit returns `429` with `Retry-After` + `X-RateLimit-*`
+  headers. Redis is the documented multi-instance swap.
+- **Sign-in tracking** — the frontend's Auth.js `events.signIn` calls `POST /auth/sign-in`
+  (shared-secret gated) which upserts a `users` row and logs a `sign_in` event. The owner
+  (`OWNER_EMAIL`) can read `GET /admin/users` and `/admin/sign-ins`.
+
 ## Observability dashboard
 
 A server-rendered HTML dashboard (no template engine or JS build) runs from the same FastAPI process:

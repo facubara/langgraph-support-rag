@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     cors_allow_origins: str = "http://localhost:3000"
     cors_allow_origin_regex: str = ""        # e.g. https://.*-myproject\.vercel\.app for preview URLs
 
+    # Auth — the Next.js BFF forwards a shared secret + the signed-in user's identity headers.
+    service_shared_secret: str = ""          # must match the frontend's SERVICE_SHARED_SECRET
+    auth_required: bool = False              # default off so the demo + tests run unauthenticated
+    owner_email: str = ""                    # email allowed to view /admin/*
+
+    # Rate limiting — per authenticated user (or client IP when anonymous)
+    rate_limit_requests: int = 30
+    rate_limit_window_seconds: int = 60
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]

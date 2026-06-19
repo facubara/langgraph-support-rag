@@ -54,8 +54,26 @@ CREATE TABLE IF NOT EXISTS steps (
     FOREIGN KEY (run_id) REFERENCES runs (id)
 );
 
+CREATE TABLE IF NOT EXISTS users (
+    id            TEXT PRIMARY KEY,
+    email         TEXT,
+    name          TEXT,
+    first_seen    REAL NOT NULL,
+    last_seen     REAL NOT NULL,
+    sign_in_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          REAL NOT NULL,
+    user_id     TEXT,
+    type        TEXT NOT NULL,
+    detail_json TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_steps_run ON steps (run_id, step_index);
 CREATE INDEX IF NOT EXISTS idx_runs_conversation ON runs (conversation_id, turn_index);
+CREATE INDEX IF NOT EXISTS idx_events_type ON events (type, ts);
 """
 
 # Columns added after the initial schema shipped. SQLite has no "ADD COLUMN IF NOT EXISTS",
@@ -285,3 +303,53 @@ def list_conversations(user_id: str | None = None, limit: int = 50) -> list[dict
                 "SELECT * FROM conversations ORDER BY updated_at DESC LIMIT ?", (limit,)
             ).fetchall()
         return [dict(r) for r in rows]
+
+
+# ------------------------------------------------------------- users / sign-in tracking
+def record_sign_in(user_id: str, email: str | None = None, name: str | None = None) -> None:
+    """Upsert the user, bump their sign-in count, and log a `sign_in` event."""
+    now = time.time()
+    with _conn() as conn:
+        exists = conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone()
+        if exists is None:
+            conn.execute(
+                "INSERT INTO users (id, email, name, first_seen, last_seen, sign_in_count) "
+                "VALUES (?, ?, ?, ?, ?, 1)",
+                (user_id, email, name, now, now),
+            )
+        else:
+            conn.execute(
+                "UPDATE users SET email = COALESCE(?, email), name = COALESCE(?, name), "
+                "last_seen = ?, sign_in_count = sign_in_count + 1 WHERE id = ?",
+                (email, name, now, user_id),
+            )
+        conn.execute(
+            "INSERT INTO events (ts, user_id, type, detail_json) VALUES (?, ?, ?, ?)",
+            (now, user_id, "sign_in", json.dumps({"email": email, "name": name})),
+        )
+
+
+def list_users(limit: int = 200) -> list[dict[str, Any]]:
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM users ORDER BY last_seen DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def list_events(limit: int = 200, type: str | None = None) -> list[dict[str, Any]]:
+    with _conn() as conn:
+        if type:
+            rows = conn.execute(
+                "SELECT * FROM events WHERE type = ? ORDER BY ts DESC LIMIT ?", (type, limit)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM events ORDER BY ts DESC LIMIT ?", (limit,)
+            ).fetchall()
+    out = []
+    for r in rows:
+        e = dict(r)
+        e["detail"] = json.loads(e.pop("detail_json")) if e.get("detail_json") else None
+        out.append(e)
+    return out

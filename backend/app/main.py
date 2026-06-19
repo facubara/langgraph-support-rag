@@ -13,6 +13,9 @@ Endpoints:
 - POST /runs/{run_id}/replay    — deterministically replay a run and diff vs. the original
 - GET  /conversations           — list recent multi-turn threads
 - GET  /conversations/{id}      — a thread and its ordered turns
+- POST /auth/sign-in            — record a sign-in (shared-secret gated; called by the frontend)
+- GET  /admin/users             — owner-only: who has signed in
+- GET  /admin/sign-ins          — owner-only: the sign-in event log
 - GET  /dashboard               — HTML run list (observability)
 - GET  /dashboard/runs/{run_id} — HTML run detail: full trace + replay button
 
@@ -25,15 +28,17 @@ import json
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from . import dashboard, replay
 from .agents.approval import execute_approved_action
+from .auth import AuthUser, require_internal, require_owner, require_user
 from .config import settings
 from .graph import run_conversation, run_conversation_streaming
+from .ratelimit import enforce_rate_limit
 from .store import run_store
 from .tools.registry import TOOLS, ToolValidationError, call_tool
 
@@ -96,10 +101,10 @@ class RunRequest(BaseModel):
 
 
 @app.post("/runs")
-def create_run(req: RunRequest, x_user_id: str | None = Header(default=None)) -> dict:
+def create_run(req: RunRequest, user: AuthUser = Depends(enforce_rate_limit)) -> dict:
     """Run one conversation turn through the multi-agent graph."""
     return run_conversation(req.message, customer_id=req.customer_id,
-                            conversation_id=req.conversation_id, user_id=x_user_id)
+                            conversation_id=req.conversation_id, user_id=user.id)
 
 
 def _sse(events: Iterator[dict]) -> Iterator[str]:
@@ -109,10 +114,10 @@ def _sse(events: Iterator[dict]) -> Iterator[str]:
 
 
 @app.post("/runs/stream")
-def create_run_stream(req: RunRequest, x_user_id: str | None = Header(default=None)) -> StreamingResponse:
+def create_run_stream(req: RunRequest, user: AuthUser = Depends(enforce_rate_limit)) -> StreamingResponse:
     """Run one turn and stream it as SSE: router → rag → tool* → policy → token* → done."""
     events = run_conversation_streaming(req.message, customer_id=req.customer_id,
-                                        conversation_id=req.conversation_id, user_id=x_user_id)
+                                        conversation_id=req.conversation_id, user_id=user.id)
     return StreamingResponse(
         _sse(events),
         media_type="text/event-stream",
@@ -126,8 +131,8 @@ def get_runs() -> list[dict]:
 
 
 @app.get("/conversations")
-def get_conversations(x_user_id: str | None = Header(default=None)) -> list[dict]:
-    return run_store.list_conversations(user_id=x_user_id)
+def get_conversations(user: AuthUser = Depends(require_user)) -> list[dict]:
+    return run_store.list_conversations(user_id=user.id)
 
 
 @app.get("/conversations/{conversation_id}")
@@ -154,7 +159,7 @@ def _require_run(run_id: str) -> dict:
 
 
 @app.post("/runs/{run_id}/approve")
-def approve_run(run_id: str) -> dict:
+def approve_run(run_id: str, user: AuthUser = Depends(require_user)) -> dict:
     """Human-in-the-loop: execute the risky action this run is waiting on."""
     data = _require_run(run_id)
     run = data["run"]
@@ -174,7 +179,7 @@ def approve_run(run_id: str) -> dict:
 
 
 @app.post("/runs/{run_id}/replay")
-def replay_run(run_id: str) -> dict:
+def replay_run(run_id: str, user: AuthUser = Depends(require_user)) -> dict:
     """Deterministically replay a recorded run and diff the result against the original.
 
     Re-runs the graph with the original message + resolved customer id, serving the run's
@@ -196,7 +201,7 @@ def replay_run(run_id: str) -> dict:
 
 
 @app.post("/runs/{run_id}/reject")
-def reject_run(run_id: str) -> dict:
+def reject_run(run_id: str, user: AuthUser = Depends(require_user)) -> dict:
     data = _require_run(run_id)
     run = data["run"]
     if run["status"] != "awaiting_approval":
@@ -209,6 +214,30 @@ def reject_run(run_id: str) -> dict:
                          final_response="The proposed action was rejected by a human reviewer.",
                          status="rejected", pending_action=None)
     return {"run_id": run_id, "status": "rejected"}
+
+
+# ------------------------------------------------- sign-in tracking + owner-only admin
+class SignInRequest(BaseModel):
+    user_id: str
+    email: str | None = None
+    name: str | None = None
+
+
+@app.post("/auth/sign-in", status_code=204, dependencies=[Depends(require_internal)])
+def record_sign_in(req: SignInRequest) -> None:
+    """Called by the frontend's Auth.js events.signIn (shared-secret gated) so the owner can
+    see who entered the demo."""
+    run_store.record_sign_in(req.user_id, email=req.email, name=req.name)
+
+
+@app.get("/admin/users")
+def admin_users(owner: AuthUser = Depends(require_owner)) -> list[dict]:
+    return run_store.list_users()
+
+
+@app.get("/admin/sign-ins")
+def admin_sign_ins(owner: AuthUser = Depends(require_owner)) -> list[dict]:
+    return run_store.list_events(type="sign_in")
 
 
 # --------------------------------------------------------------- observability dashboard
