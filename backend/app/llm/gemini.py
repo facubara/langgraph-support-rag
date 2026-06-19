@@ -4,6 +4,7 @@ mode works without it installed."""
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 
 from .base import LLMClient, LLMResponse
 
@@ -30,3 +31,10 @@ class GeminiLLM(LLMClient):
             completion_tokens=getattr(usage, "candidates_token_count", 0) if usage else 0,
             latency_ms=latency_ms,
         )
+
+    def stream(self, system: str, prompt: str) -> Iterator[str]:
+        resp = self._client.generate_content(f"{system}\n\n{prompt}", stream=True)
+        for chunk in resp:
+            text = getattr(chunk, "text", "")
+            if text:
+                yield text

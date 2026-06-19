@@ -207,6 +207,12 @@ def policy_safety(state: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------- response agent
+REFUSAL_TEXT = (
+    "I don't have enough information in our records or knowledge base to answer that "
+    "confidently. I can connect you with a human agent if you'd like."
+)
+
+
 def _context_to_text(context: list[dict[str, Any]]) -> str:
     lines = []
     for c in context:
@@ -217,39 +223,65 @@ def _context_to_text(context: list[dict[str, Any]]) -> str:
     return "\n".join(lines) if lines else "(no context retrieved)"
 
 
+def _history_to_text(history: list[dict[str, Any]]) -> str:
+    lines = [f"{h.get('role', 'user').capitalize()}: {h.get('text', '')}" for h in history]
+    return "\n".join(lines)
+
+
+def build_response_prompt(state: dict[str, Any]) -> tuple[str, str]:
+    """Compose the (system, user) prompt for the Response agent.
+
+    Shared by the synchronous node and the streaming layer so phrasing never diverges.
+    Prior conversation turns are prepended when present; for a single-turn run the prompt is
+    byte-identical to the original, keeping existing behavior (and replay) unchanged.
+    """
+    from ..prompts import get_response_prompt
+
+    context = state.get("context_included", [])
+    history_block = _history_to_text(state.get("history") or [])
+    prompt = (
+        (f"Conversation so far:\n{history_block}\n\n" if history_block else "")
+        + f"User message: {state['message']}\n\n"
+        f"Context:\n{_context_to_text(context)}\n\n"
+        f"Proposed action requiring human approval: {state.get('pending_action')}\n\n"
+        "Write a concise, grounded reply."
+    )
+    return get_response_prompt(settings.prompt_version), prompt
+
+
+def apply_pending_suffix(text: str, pending: dict[str, Any] | None) -> tuple[str, str]:
+    """Append the HITL suffix and return (final_text, status)."""
+    if pending is not None:
+        text = f"{text}\n\nProposed next step (awaiting human approval): {pending['action']}."
+        return text, "awaiting_approval"
+    return text, "completed"
+
+
 def response(state: dict[str, Any]) -> dict[str, Any]:
     started = time.perf_counter()
     grounded = state.get("grounded", False)
     pending = state.get("pending_action")
-    context = state.get("context_included", [])
 
     if not grounded:
-        text = ("I don't have enough information in our records or knowledge base to answer that "
-                "confidently. I can connect you with a human agent if you'd like.")
         return {
-            "final_response": text,
+            "final_response": REFUSAL_TEXT,
             "status": "completed",
             "trace": [_step("agent", "response", started, output={"mode": "refusal"})],
         }
 
-    prompt = (
-        f"User message: {state['message']}\n\n"
-        f"Context:\n{_context_to_text(context)}\n\n"
-        f"Proposed action requiring human approval: {pending}\n\n"
-        "Write a concise, grounded reply."
-    )
-    from ..prompts import get_response_prompt
+    system, prompt = build_response_prompt(state)
 
-    llm = get_llm()
-    resp = llm.complete(system=get_response_prompt(settings.prompt_version), prompt=prompt)
+    # Streaming path: defer the LLM call to the streaming layer (which emits tokens), and
+    # just hand it the assembled prompt. No `llm` trace step here — the streamer records it.
+    if state.get("stream_response"):
+        return {
+            "response_system": system,
+            "response_prompt": prompt,
+            "trace": [_step("agent", "response", started, output={"mode": "deferred_stream"})],
+        }
 
-    text = resp.text
-    if pending is not None:
-        text = (f"{text}\n\nProposed next step (awaiting human approval): "
-                f"{pending['action']}.")
-        status = "awaiting_approval"
-    else:
-        status = "completed"
+    resp = get_llm().complete(system=system, prompt=prompt)
+    text, status = apply_pending_suffix(resp.text, pending)
 
     return {
         "final_response": text,

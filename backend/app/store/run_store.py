@@ -18,14 +18,25 @@ from ..config import settings
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
-    id             TEXT PRIMARY KEY,
-    created_at     REAL NOT NULL,
-    user_message   TEXT NOT NULL,
-    intent         TEXT,
-    final_response TEXT,
-    status         TEXT NOT NULL DEFAULT 'created',
-    pending_action TEXT,
-    replay_of      TEXT
+    id              TEXT PRIMARY KEY,
+    created_at      REAL NOT NULL,
+    user_message    TEXT NOT NULL,
+    intent          TEXT,
+    final_response  TEXT,
+    status          TEXT NOT NULL DEFAULT 'created',
+    pending_action  TEXT,
+    replay_of       TEXT,
+    conversation_id TEXT,
+    turn_index      INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS conversations (
+    id          TEXT PRIMARY KEY,
+    created_at  REAL NOT NULL,
+    updated_at  REAL NOT NULL,
+    user_id     TEXT,
+    customer_id TEXT,
+    title       TEXT
 );
 
 CREATE TABLE IF NOT EXISTS steps (
@@ -44,7 +55,15 @@ CREATE TABLE IF NOT EXISTS steps (
 );
 
 CREATE INDEX IF NOT EXISTS idx_steps_run ON steps (run_id, step_index);
+CREATE INDEX IF NOT EXISTS idx_runs_conversation ON runs (conversation_id, turn_index);
 """
+
+# Columns added after the initial schema shipped. SQLite has no "ADD COLUMN IF NOT EXISTS",
+# so we check PRAGMA table_info and add what's missing — keeps existing DBs on a volume intact.
+_RUNS_MIGRATIONS = {
+    "conversation_id": "ALTER TABLE runs ADD COLUMN conversation_id TEXT",
+    "turn_index": "ALTER TABLE runs ADD COLUMN turn_index INTEGER",
+}
 
 
 def _db_path() -> Path:
@@ -67,14 +86,24 @@ def _conn() -> Iterator[sqlite3.Connection]:
 def init_db() -> None:
     with _conn() as conn:
         conn.executescript(_SCHEMA)
+        existing = {row["name"] for row in conn.execute("PRAGMA table_info(runs)")}
+        for column, ddl in _RUNS_MIGRATIONS.items():
+            if column not in existing:
+                conn.execute(ddl)
 
 
-def create_run(run_id: str, user_message: str, replay_of: str | None = None) -> None:
+def create_run(
+    run_id: str,
+    user_message: str,
+    replay_of: str | None = None,
+    conversation_id: str | None = None,
+    turn_index: int | None = None,
+) -> None:
     with _conn() as conn:
         conn.execute(
-            "INSERT INTO runs (id, created_at, user_message, status, replay_of) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (run_id, time.time(), user_message, "created", replay_of),
+            "INSERT INTO runs (id, created_at, user_message, status, replay_of, "
+            "conversation_id, turn_index) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (run_id, time.time(), user_message, "created", replay_of, conversation_id, turn_index),
         )
 
 
@@ -172,4 +201,87 @@ def list_replays(run_id: str) -> list[dict[str, Any]]:
         rows = conn.execute(
             "SELECT * FROM runs WHERE replay_of = ? ORDER BY created_at DESC", (run_id,)
         ).fetchall()
+        return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------- conversations
+def create_conversation(
+    conversation_id: str,
+    user_id: str | None = None,
+    customer_id: str | None = None,
+    title: str | None = None,
+) -> None:
+    now = time.time()
+    with _conn() as conn:
+        conn.execute(
+            "INSERT INTO conversations (id, created_at, updated_at, user_id, customer_id, title) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (conversation_id, now, now, user_id, customer_id, title),
+        )
+
+
+def conversation_exists(conversation_id: str) -> bool:
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM conversations WHERE id = ?", (conversation_id,)
+        ).fetchone()
+        return row is not None
+
+
+def next_turn_index(conversation_id: str) -> int:
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT COALESCE(MAX(turn_index), -1) AS m FROM runs WHERE conversation_id = ?",
+            (conversation_id,),
+        ).fetchone()
+        return int(row["m"]) + 1
+
+
+def touch_conversation(conversation_id: str, customer_id: str | None = None) -> None:
+    """Bump updated_at, and remember the latest customer id seen on the thread."""
+    with _conn() as conn:
+        if customer_id:
+            conn.execute(
+                "UPDATE conversations SET updated_at = ?, customer_id = ? WHERE id = ?",
+                (time.time(), customer_id, conversation_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE conversations SET updated_at = ? WHERE id = ?",
+                (time.time(), conversation_id),
+            )
+
+
+def get_conversation(conversation_id: str) -> dict[str, Any] | None:
+    """A conversation plus its runs in turn order (each run includes its step trace)."""
+    with _conn() as conn:
+        conv = conn.execute(
+            "SELECT * FROM conversations WHERE id = ?", (conversation_id,)
+        ).fetchone()
+        if conv is None:
+            return None
+        rows = conn.execute(
+            "SELECT * FROM runs WHERE conversation_id = ? ORDER BY turn_index, created_at",
+            (conversation_id,),
+        ).fetchall()
+    turns = []
+    for r in rows:
+        run = dict(r)
+        if run.get("pending_action"):
+            run["pending_action"] = json.loads(run["pending_action"])
+        turns.append(run)
+    return {"conversation": dict(conv), "turns": turns}
+
+
+def list_conversations(user_id: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+    with _conn() as conn:
+        if user_id:
+            rows = conn.execute(
+                "SELECT * FROM conversations WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?",
+                (user_id, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM conversations ORDER BY updated_at DESC LIMIT ?", (limit,)
+            ).fetchall()
         return [dict(r) for r in rows]

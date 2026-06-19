@@ -17,6 +17,10 @@ class AgentState(TypedDict, total=False):
     customer_id: str | None
     intent: str | None
 
+    # Multi-turn (seeded once at entry, not an additive reducer)
+    conversation_id: str | None
+    history: list[dict[str, Any]]      # [{"role": "user"|"assistant", "text": ...}, ...]
+
     # Context optimization (filled by the RAG/billing agent)
     retrieved: list[dict[str, Any]]
     context_included: list[dict[str, Any]]
@@ -28,6 +32,12 @@ class AgentState(TypedDict, total=False):
     # Safety / HITL
     pending_action: dict[str, Any] | None
     grounded: bool
+
+    # Streaming: when set, the Response node prepares the prompt but defers the LLM call to
+    # the streaming layer, which stashes (system, prompt) here instead of completing inline.
+    stream_response: bool
+    response_system: str | None
+    response_prompt: str | None
 
     # Output
     final_response: str | None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,3 +29,12 @@ class LLMClient(ABC):
     @abstractmethod
     def complete(self, system: str, prompt: str) -> LLMResponse:  # pragma: no cover - interface
         ...
+
+    def stream(self, system: str, prompt: str) -> Iterator[str]:
+        """Yield the completion in text chunks.
+
+        Default: one chunk holding the whole `complete()` text — so every provider, the
+        resilience wrapper, and the replay client are stream-capable for free, and replay
+        stays deterministic. Providers override this for true token streaming.
+        """
+        yield self.complete(system, prompt).text

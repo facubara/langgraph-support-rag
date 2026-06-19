@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     llm_max_retries: int = 2
     llm_fallback_model: str = ""
 
+    # Streaming / conversations
+    mock_stream_delay: float = 0.0       # seconds between mock tokens; >0 makes the demo visibly stream
+    conversation_history_turns: int = 6  # prior turns fed back into the response prompt
+
     # Prompts
     prompt_version: str = "v2"
 

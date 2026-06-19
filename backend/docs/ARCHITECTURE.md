@@ -42,7 +42,28 @@ and deterministic replay first-class — exactly what evals and observability ne
 The interface (`llm/base.py`) is small enough that an OpenAI/Anthropic adapter is a single drop-in
 file. Every provider is wrapped by a `ResilientLLM` (timeout → retry → optional fallback model), and
 the factory consults a context variable so a `ReplayLLM` can transparently serve recorded completions
-during replay without any node knowing.
+during replay without any node knowing. The interface also exposes `stream()` (default: one chunk of
+the full `complete()` text), which providers override for true token streaming.
+
+## Streaming (SSE)
+
+`POST /runs/stream` runs a turn and emits Server-Sent Events: `run_started → router → rag → tool* →
+policy → token* → done` (or `error`). The graph stays **synchronous** — only the Response agent's text
+is streamed. The Response node, when `stream_response` is set, builds the prompt via
+`build_response_prompt` but defers the LLM call; the streaming layer (`run_conversation_streaming`)
+then calls `get_llm().stream(...)`, emits a `token` event per chunk, applies the HITL suffix, persists
+the final `llm` step, and emits `done`. Because the persisted trace is identical to the non-streaming
+path, a streamed run replays deterministically. Mid-stream provider failures (after the first token)
+surface as an `error` event — they can't be retried once tokens are on the wire.
+
+## Multi-turn conversations
+
+A `conversation_id` threads turns together. `conversations` rows hold thread metadata; each `run` links
+back via `conversation_id` + `turn_index`. On a new turn the graph loads the last
+`CONVERSATION_HISTORY_TURNS` turns into `history` (prepended to the response prompt) and resolves a
+**sticky** customer id from the thread when the turn omits one. Omitting `conversation_id` preserves the
+original single-turn behavior exactly. Because replay records LLM *output* (not the prompt), a
+conversation turn still replays deterministically even though the replay prompt has no history.
 
 ## RAG grounding
 

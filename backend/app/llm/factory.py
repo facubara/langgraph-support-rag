@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 
 from ..config import settings
@@ -54,6 +55,27 @@ class ResilientLLM(LLMClient):
             except Exception as err:  # noqa: BLE001
                 last_err = err
         raise RuntimeError(f"LLM call failed after retries and fallback: {last_err}")
+
+    def stream(self, system: str, prompt: str) -> Iterator[str]:
+        # Retry / fall back only *before the first token* — once tokens are on the wire we
+        # can't un-send them, so a mid-stream failure must propagate to the caller (the
+        # streaming endpoint surfaces it as an SSE `error` event).
+        last_err: Exception | None = None
+        for _ in range(self.max_retries + 1):
+            emitted = False
+            try:
+                for chunk in self.primary.stream(system, prompt):
+                    emitted = True
+                    yield chunk
+                return
+            except Exception as err:  # noqa: BLE001
+                last_err = err
+                if emitted:
+                    raise
+        if self.fallback is not None:
+            yield from self.fallback.stream(system, prompt)
+            return
+        raise RuntimeError(f"LLM stream failed after retries and fallback: {last_err}")
 
 
 def get_llm() -> LLMClient:

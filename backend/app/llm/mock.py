@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 
+from ..config import settings
 from .base import LLMClient, LLMResponse
 
 
@@ -23,6 +25,15 @@ class MockLLM(LLMClient):
             cost_usd=0.0,
             latency_ms=latency_ms,
         )
+
+    def stream(self, system: str, prompt: str) -> Iterator[str]:
+        # Emit word-sized chunks so the demo visibly streams with no API key. The
+        # concatenation equals `complete()`'s text exactly, which keeps replay consistent.
+        text = self._respond(prompt)
+        for i, word in enumerate(text.split(" ")):
+            yield word if i == 0 else " " + word
+            if settings.mock_stream_delay:
+                time.sleep(settings.mock_stream_delay)
 
     @staticmethod
     def _respond(prompt: str) -> str:
