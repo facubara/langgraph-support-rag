@@ -79,8 +79,38 @@ docker compose up --build                            # FastAPI on http://localho
 Runs on the built-in **mock** provider (no API key, zero cost); the SQLite run/trace store persists on
 a named volume. For real Gemini calls, set `LLM_PROVIDER=gemini` + `GOOGLE_API_KEY` in `backend/.env`.
 
-See [`backend/README` / docs](backend/docs/ARCHITECTURE.md) and [`frontend/README.md`](frontend/README.md)
-for package-level details.
+> Tip: locally you can skip Google OAuth — set `ALLOW_DEV_LOGIN=true` in `frontend/.env.local` for a
+> one-click "demo user" sign-in. Leave it unset in production.
+
+See [`backend/docs/ARCHITECTURE.md`](backend/docs/ARCHITECTURE.md) and
+[`frontend/README.md`](frontend/README.md) for package-level details.
+
+## Deployment
+
+Frontend → **Vercel**, backend → **Render**, talking over the authenticated BFF proxy.
+
+**Backend (Render).** Use the [`render.yaml`](render.yaml) blueprint (Docker, `rootDir: backend`,
+`/health` check, SQLite on a 1 GB disk at `/data`). Set these env vars in the Render dashboard:
+
+| Var | Value |
+| --- | --- |
+| `SERVICE_SHARED_SECRET` | a strong random string — **must match Vercel** |
+| `OWNER_EMAIL` | your email (unlocks `/admin`) |
+| `CORS_ALLOW_ORIGINS` | `https://<your-app>.vercel.app` |
+| `AUTH_REQUIRED` | `true` |
+
+**Frontend (Vercel).** Import the repo with **root directory `frontend`**. Set:
+
+| Var | Value |
+| --- | --- |
+| `BACKEND_URL` | your Render URL, e.g. `https://support-copilot-api.onrender.com` |
+| `SERVICE_SHARED_SECRET` | same value as Render |
+| `AUTH_SECRET` | `npx auth secret` |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client (redirect URI `https://<app>.vercel.app/api/auth/callback/google`) |
+
+Do **not** set `ALLOW_DEV_LOGIN` in production. Note: Render's free tier has no persistent disk
+(SQLite resets on redeploy); the blueprint uses a paid `starter` instance for durable storage —
+swap to managed Postgres if you need multi-instance scale.
 
 ## License
 

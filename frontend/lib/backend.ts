@@ -21,6 +21,17 @@ export async function backendFetch(path: string, init: RequestInit = {}): Promis
   return fetch(`${BACKEND_URL}${path}`, { ...init, headers, cache: "no-store" });
 }
 
+/** Server-side fetch + parse for React Server Components. Throws on non-2xx (carries the status). */
+export async function getJson<T>(path: string): Promise<T> {
+  const res = await backendFetch(path);
+  if (!res.ok) {
+    const err = new Error(`backend ${path} -> ${res.status}`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
+  return res.json() as Promise<T>;
+}
+
 /** Proxy a JSON request to the backend and relay its status + body verbatim. */
 export async function proxyJson(path: string, init: RequestInit = {}): Promise<Response> {
   try {
