@@ -4,63 +4,64 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ---------------------------------------------------------------- design tokens
-   Semantic colors live as CSS vars so components use stable names (bg-card,
-   text-muted-foreground, ...) and the whole palette flips with the theme. */
+   Aligned to Vercel's Geist design system (https://vercel.com/design.md):
+   monochrome gray scale for hierarchy, blue (#006bff) as the single accent,
+   high-contrast primary fill (near-black on light, near-white on dark), 6px controls /
+   12px cards, and very subtle elevation. Components reference these semantic names. */
 :root {
-  --background: #f7f7f8;
-  --foreground: #0b0b0f;
+  --background: #ffffff;
+  --foreground: #171717;          /* gray-1000 — primary text */
   --card: #ffffff;
-  --card-foreground: #0b0b0f;
-  --muted: #f0f0f2;
-  --muted-foreground: #6b7280;
-  --border: #e7e7ea;
-  --input: #e2e2e6;
-  --ring: #6366f1;
-  --primary: #4f46e5;
+  --card-foreground: #171717;
+  --muted: #fafafa;               /* background-200 */
+  --muted-foreground: #666666;    /* gray-900 — secondary text */
+  --border: rgba(0, 0, 0, 0.08);  /* gray-alpha-400 */
+  --input: rgba(0, 0, 0, 0.12);
+  --ring: #006bff;                /* accent blue — focus */
+  --primary: #171717;            /* gray-1000 fill */
   --primary-foreground: #ffffff;
-  --accent: #7c3aed;
-  --success: #16a34a;
-  --warning: #d97706;
-  --danger: #dc2626;
-  --radius: 0.75rem;
+  --accent: #006bff;             /* blue — interactive / active emphasis */
+  --success: #0a7d34;
+  --warning: #9a5b00;
+  --danger: #d12d36;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0c;
-    --foreground: #f4f4f6;
-    --card: #131318;
-    --card-foreground: #f4f4f6;
-    --muted: #1a1a20;
-    --muted-foreground: #9a9aa6;
-    --border: #26262e;
-    --input: #2a2a33;
-    --ring: #818cf8;
-    --primary: #6366f1;
-    --primary-foreground: #ffffff;
-    --accent: #a78bfa;
-    --success: #22c55e;
-    --warning: #f59e0b;
-    --danger: #ef4444;
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --card: #111111;
+    --card-foreground: #ededed;
+    --muted: #1a1a1a;
+    --muted-foreground: #a1a1a1;
+    --border: rgba(255, 255, 255, 0.1);
+    --input: rgba(255, 255, 255, 0.14);
+    --ring: #3b9eff;
+    --primary: #ededed;
+    --primary-foreground: #0a0a0a;
+    --accent: #3b9eff;
+    --success: #3fb950;
+    --warning: #d29922;
+    --danger: #f85149;
   }
 }
 
 .dark {
-  --background: #0a0a0c;
-  --foreground: #f4f4f6;
-  --card: #131318;
-  --card-foreground: #f4f4f6;
-  --muted: #1a1a20;
-  --muted-foreground: #9a9aa6;
-  --border: #26262e;
-  --input: #2a2a33;
-  --ring: #818cf8;
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --accent: #a78bfa;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #111111;
+  --card-foreground: #ededed;
+  --muted: #1a1a1a;
+  --muted-foreground: #a1a1a1;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.14);
+  --ring: #3b9eff;
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
+  --accent: #3b9eff;
+  --success: #3fb950;
+  --warning: #d29922;
+  --danger: #f85149;
 }
 
 @theme inline {
@@ -79,9 +80,17 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 0.25rem);
-  --radius-sm: calc(var(--radius) - 0.4rem);
+
+  /* Radius — Geist: 6px controls, 12px cards, full pills. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+
+  /* Elevation — Geist's restrained shadows (barely visible in dark; borders carry it). */
+  --shadow-sm: 0 2px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 1px 1px rgba(0, 0, 0, 0.02), 0 4px 8px -4px rgba(0, 0, 0, 0.04),
+    0 16px 24px -8px rgba(0, 0, 0, 0.06);
+
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
@@ -100,13 +109,13 @@ body {
 /* Subtle, reusable surface treatments used across the marketing + app shells. */
 .bg-grid {
   background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px);
+    linear-gradient(to right, color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px);
   background-size: 44px 44px;
 }
 
 .glow {
-  background: radial-gradient(60% 60% at 50% 0%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 70%);
+  background: radial-gradient(60% 60% at 50% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%);
 }
 
 @keyframes pulse-node {

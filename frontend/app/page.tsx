@@ -11,6 +11,7 @@ import {
 import { auth } from "@/auth";
 import { Brand } from "@/components/brand";
 import { GoogleButton } from "@/components/google-button";
+import { DevLogin } from "@/components/dev-login";
 
 const FEATURES = [
   {
@@ -84,7 +85,7 @@ export default async function LandingPage() {
             <span className="size-1.5 rounded-full bg-success animate-node" />
             Live demo · runs on a mock model, no setup required
           </span>
-          <h1 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tight sm:text-6xl">
+          <h1 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tighter sm:text-6xl">
             A multi-agent support assistant you can actually watch think.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-balance text-lg text-muted-foreground">
@@ -110,6 +111,7 @@ export default async function LandingPage() {
               See what it does
             </a>
           </div>
+          {!signedIn && <DevLogin className="mt-3" />}
 
           {/* Architecture strip */}
           <div className="mx-auto mt-16 flex max-w-3xl flex-wrap items-center justify-center gap-2 text-sm">
