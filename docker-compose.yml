@@ -1,0 +1,23 @@
+# One-command deployment:  docker compose up --build
+# Defaults to the built-in `mock` provider, so the whole stack runs with no API key.
+# To use real Gemini calls, copy .env.example -> .env and set LLM_PROVIDER=gemini + GOOGLE_API_KEY.
+services:
+  api:
+    build: .
+    image: langgraph-support-rag
+    ports:
+      - "${API_PORT:-8000}:8000"
+    # env_file is optional: if .env is absent the image's mock defaults apply.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Persist the SQLite run/trace store onto the named volume below.
+      SQLITE_PATH: data/runtime/app.sqlite
+    volumes:
+      # Keep runs/traces across container restarts.
+      - runtime:/app/data/runtime
+    restart: unless-stopped
+
+volumes:
+  runtime:

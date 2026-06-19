@@ -5,8 +5,6 @@ the concepts that separate a real agentic system from a toy chatbot: multi-agent
 RAG grounding, tool use with human-in-the-loop safety, an evaluation framework, full-trace
 observability with deterministic replay, and one-command Docker deployment.
 
-> Status: 🚧 work in progress. Building in the open.
-
 ## What it does
 
 Handles realistic SaaS support scenarios — billing questions, duplicate charges, refund-policy
@@ -61,6 +59,16 @@ uvicorn app.main:app --reload                       # API on http://localhost:80
 
 pytest                                              # run the test suite
 ```
+
+### Or with Docker (one command)
+
+```bash
+docker compose up --build                           # API + dashboard on http://localhost:8000
+```
+
+Runs on the built-in **mock** provider with no API key; the SQLite run/trace store persists on a
+named volume across restarts. For real Gemini calls, `cp .env.example .env`, set `LLM_PROVIDER=gemini`
+and `GOOGLE_API_KEY=...`, then `docker compose up --build` again.
 
 ### Try it (mock mode, no key)
 

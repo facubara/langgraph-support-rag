@@ -1,0 +1,38 @@
+# Keep the build context tiny and the image clean.
+.git
+.gitignore
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Secrets / local config — provider config is injected via env at run time.
+.env
+.env.*
+!.env.example
+
+# Runtime artifacts (regenerated inside the container / on the volume).
+data/runtime
+*.sqlite
+*.sqlite3
+*.db
+.chroma
+chroma
+*.log
+
+# Things not needed to run the service.
+tests
+evals
+docs
+README.md
+LICENSE
+.claude
+.vscode
+.idea
+.DS_Store
+Thumbs.db

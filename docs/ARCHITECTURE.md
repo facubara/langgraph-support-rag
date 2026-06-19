@@ -1,39 +1,106 @@
 # Architecture
 
-> Placeholder — filled in as the system is built. Will include the agent graph diagram,
-> state schema, the tool gateway/validation design, the eval scoring rubric, and the
-> trace/replay model.
+A multi-agent customer-support / billing assistant. One conversation turn enters the graph,
+is routed to specialist agents, gated for safety, and answered only from approved tool data and a
+grounded knowledge base — with every step traced for observability and deterministic replay.
 
-## Agent graph (planned)
+## Agent graph
 
-- **Router** → classifies intent (billing question | duplicate charge | refund request | escalation).
-- **Billing / RAG Agent** → retrieval + tool calls to answer.
-- **Policy / Safety Agent** → refund-eligibility check; human-in-the-loop gate on risky tools.
-- **Response Agent** → grounded final reply + context/tool report.
+A [LangGraph](https://langchain-ai.github.io/langgraph/) state machine with four nodes and
+conditional routing:
+
+```
+user → Router ─┬→ Billing/RAG ⇄ tools ⇄ KB ─┐
+               └→ RAG-only ──────────────────┤
+                                             ▼
+                                     Policy/Safety ──(risky?)── HITL gate → approve/reject
+                                             │
+                                             ▼
+                                         Response → user
+                                             │
+              every node emits a step → SQLite → dashboard + replay
+```
+
+- **Router** — classifies intent (billing question | duplicate charge | refund request | escalation)
+  and picks the downstream path.
+- **Billing / RAG Agent** — retrieves KB context and calls business tools to gather facts.
+- **Policy / Safety Agent** — checks refund eligibility against policy and gates risky tools
+  (`create_refund_ticket`, `escalate_to_human`) behind a human-in-the-loop approval.
+- **Response Agent** — composes the grounded final reply and reports the context/tools it used;
+  refuses when nothing in context supports an answer.
+
+**Why LangGraph:** the graph and run-state are explicit, which makes orchestration, agent handoffs,
+and deterministic replay first-class — exactly what evals and observability need.
+
+## LLM layer (provider-configurable)
+
+`llm.factory.get_llm` returns a provider chosen by `LLM_PROVIDER`:
+
+- **mock** (default) — deterministic, no API key, zero cost; runs the whole pipeline in tests and demos.
+- **gemini** — real calls via `GOOGLE_API_KEY`.
+
+The interface (`llm/base.py`) is small enough that an OpenAI/Anthropic adapter is a single drop-in
+file. Every provider is wrapped by a `ResilientLLM` (timeout → retry → optional fallback model), and
+the factory consults a context variable so a `ReplayLLM` can transparently serve recorded completions
+during replay without any node knowing.
+
+## RAG grounding
+
+The KB (`app/kb/*.md`) is chunked by paragraph and embedded with a local deterministic embedder, then
+served by a cosine top-k retriever. The caller applies a score threshold (`RAG_MIN_SCORE`) to decide
+what is grounded enough to include; chunks below it are logged as *excluded*, and the Response agent
+refuses rather than answer ungrounded.
 
 ## Run state & replay
 
-Each run persists its full state and step trace to SQLite (run id, messages, retrieved context,
-tool calls + recorded outputs, model calls, latency, cost, errors).
+Each run persists its full state and step trace to SQLite (run id, message, intent, retrieved context,
+tool calls + recorded outputs, model calls, latency, cost, errors, status, pending action).
 
-**Deterministic replay.** Everything in the graph is deterministic *except* the user-facing
-phrasing the Response agent gets from the LLM (under a real provider, the same prompt can yield
-different text). `POST /runs/{id}/replay` re-runs the graph for a recorded run, but a `ReplayLLM`
-serves that run's **recorded** completions in call order instead of calling the provider — wired
-in through a context variable that `llm.factory.get_llm` consults, so no node knows whether it is
-live or replaying. Tool results come from static fixtures and routing/policy are rule-based, so the
-replay reproduces the original outcome and the endpoint returns a diff (intent, status, response,
-pending action, tool sequence) against the source run. The replay is stored as its own run linked
-via `replay_of`.
+**Deterministic replay.** Everything in the graph is deterministic *except* the user-facing phrasing
+from the LLM. `POST /runs/{id}/replay` re-runs the graph for a recorded run, but `ReplayLLM` serves
+that run's **recorded** completions in call order instead of calling the provider — wired in through a
+context variable that `llm.factory.get_llm` consults, so no node knows whether it is live or replaying.
+Tool results come from static fixtures and routing/policy are rule-based, so the replay reproduces the
+original outcome and the endpoint returns a diff (intent, status, response, pending action, tool
+sequence) against the source run. The replay is stored as its own run linked via `replay_of`.
 
 ## Observability dashboard
 
-A server-rendered HTML dashboard (no template engine or JS build) runs from the same FastAPI
-process: `GET /dashboard` lists recent runs; `GET /dashboard/runs/{id}` shows the full step trace
-(per-step type, latency, cost, input/output, errors), any linked replays, and a button to replay
-the run and view the match/diff inline.
+A server-rendered HTML dashboard (no template engine or JS build) runs from the same FastAPI process:
+`GET /dashboard` lists recent runs; `GET /dashboard/runs/{id}` shows the full step trace (per-step
+type, latency, cost, input/output, errors), any linked replays, and a button to replay the run and
+view the match/diff inline.
 
-## Mock business tools (planned)
+## Evaluation framework
+
+`evals/runner.py` scores an offline dataset (`evals/dataset.json`) on task success, grounding, tool
+correctness, policy compliance, and escalation correctness; `evals/compare.py` diffs two reports to
+catch regressions between prompt/model versions (`PROMPT_VERSION`). Reports land in `evals/reports/`.
+
+## Business tools
 
 `get_customer_profile` · `get_invoice_history` · `check_refund_policy` ·
-`create_refund_ticket` (HITL) · `escalate_to_human` (HITL)
+`create_refund_ticket` (HITL) · `escalate_to_human` (HITL). Each has a Pydantic args schema; the tool
+gateway validates arguments before invocation and flags which tools require approval.
+
+## Deployment
+
+The service is pure Python and serves the API + dashboard from one ASGI process, so deployment is a
+single container.
+
+- **Dockerfile** — `python:3.13-slim`, deps cached in their own layer, runs as an unprivileged user,
+  and ships a `/health` healthcheck driven by the interpreter (no curl in the image). Entrypoint:
+  `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
+- **docker-compose.yml** — `docker compose up --build` brings the stack up on the mock provider with
+  no key. `.env` is optional (`required: false`); when present it injects provider config. The SQLite
+  run/trace store is persisted on a named `runtime` volume so runs survive restarts.
+- **Configuration** — all runtime config is environment-driven via `app/config.py` (`Settings`); every
+  key is documented in `.env.example`, and `tests/test_deployment.py` asserts the example, the
+  Dockerfile, and the compose file stay coherent with the app.
+
+```bash
+docker compose up --build          # API + dashboard on http://localhost:8000
+# real provider:
+cp .env.example .env               # set LLM_PROVIDER=gemini and GOOGLE_API_KEY=...
+docker compose up --build
+```
